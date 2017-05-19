@@ -24,4 +24,4 @@ Invoke-WebRequest $DownloadURL -OutFile $OutFileName
 
 
 # Start the update installer silently
-Start-Process -FilePath $Destination\$FileName -ArgumentList ('/s')
+Start-Process -FilePath $Destination\$OutFileName -ArgumentList ('/s')
