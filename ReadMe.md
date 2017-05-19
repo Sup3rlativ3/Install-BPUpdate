@@ -44,7 +44,7 @@ Exmaple usage
   `.\Install-BPUpdate.ps1`
         This will run the script with default. The download will be downloaded to with the original filename to C:\BPUpdates
     
-  `.\Deploy-LAPS.ps1 -OutFileName "BPUPdate.exe"`
+  `.\Install-BPUpdate.ps1 -OutFileName "BPUPdate.exe"`
   	    This will run the script with defaults but set the saved filename to "BPUpdate.exe" (without the quotes).
    
  
