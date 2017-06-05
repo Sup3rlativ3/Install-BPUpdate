@@ -10,18 +10,21 @@ param ( [string]$Date = (get-date -Format yymmdd),
 #    NOTICE   #   This MUST be run on your Best Practice server.
 ###############
 
-
-
-# Check to see if the download folder exists and if not create it.
+#Check to see if the download folder exists and if not create it.
 if(!(test-path $Destination))
     {
         New-Item $Destination
     }
 
+TRY {
+	#Download the file to the download folder
+	Invoke-WebRequest $DownloadURL -OutFile $OutFileName
 
-# Download the file to the download folder
-Invoke-WebRequest $DownloadURL -OutFile $OutFileName
+    write-host "Starting install..." -forgroundcolor Green
+	#Start the update installer silently
+	Start-Process -FilePath $Destination\$OutFileName -ArgumentList ('/s')
+    }
+CATCH {
+	write-host "No download available" -foregroundcolor Red
+      }
 
-
-# Start the update installer silently
-Start-Process -FilePath $Destination\$OutFileName -ArgumentList ('/s')
