@@ -38,6 +38,9 @@ This script will check to see if an incremental Best Practice data update has be
 
 -------------------
 
+Use the "Install BP UPdate.xml" to create a scheduled task. Be sure to replace DOMAIN\ADMIN with the credentials you want to use.
+
+-------------------
 Exmaple usage
 -------------- 
 
