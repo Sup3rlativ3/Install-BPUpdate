@@ -34,7 +34,12 @@ This script will check to see if an incremental Best Practice data update has be
    _No Wildcards._   
   	This sets the name to download the file as.
     
-
+ **-EventSource**  
+  	_Not Required._  
+   _Pipeline not accepted._   
+   _Named Position._   
+   _No Wildcards._   
+  	This sets the name of the source for event viewer logs.
 
 -------------------
 
@@ -50,4 +55,5 @@ Exmaple usage
   `.\Install-BPUpdate.ps1 -OutFileName "BPUPdate.exe"`
   	    This will run the script with defaults but set the saved filename to "BPUpdate.exe" (without the quotes).
    
- 
+   `.\Install-BPUpdate.ps1 -Date "170105" -Destination "C:\Temp" -OutFileName "TempBPUpdateFile.exe" -EventSource "PS BP Update Script"`
+       This will attempt to download the update from 2017/01/05 and write the file "TempBPUpdate.exe" to "C:\Temp" and if an error occurs it will write the source as "PS BP Update Script"
