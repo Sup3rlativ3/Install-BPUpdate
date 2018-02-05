@@ -3,17 +3,16 @@
 param ( [string]$EventSource = 'Best Practice Update Script',
   [string]$Destination = "$env:HOMEDRIVE\BPUpdates",
   [string]$CurrentMonth = (Get-Date -Format MMMM),
-  [string]$OutFileName = 'BPS_Data_'+$CurrentMonth+'_inc.exe'
+  [string]$CurrentYear = (Get-Date -Format YYYY),
+  [string]$Type =
+  [string]$OutFileName = 'BPS_Data_'+$CurrentMonth+$CurrentYear+'_inc.exe'
 )
-
-
+$CurrentYear = (Get-Date -Format YYYY)
 ###############
 #    NOTICE   #   This MUST be run on your Best Practice server.
 ###############
 
-
-
-# Check to see if the event source esists and if not create it.
+# Check to see if the event source exists and if not create it.
 $EventSourceExists = Get-EventLog  -LogName Application | Where-Object -FilterScript {
   $_.source -like "$EventSource"
 } 
@@ -29,57 +28,51 @@ IF ((Test-Path -Path $Destination -PathType Container -ErrorAction SilentlyConti
   New-Item -Path $Destination -ItemType Directory
 }
 
-
-# This opens the page to allow us to interact with it via the script.
-$Request  = Invoke-WebRequest -Uri 'http://www.bpsoftware.net/updates/data-update/'
-
-
-# This section looks for the release month on the page. It then compares it to the current month.
-# If the current month and release month are the same it checks to see if it has already applied this patch.
-$ReleaseMonth = $Request.ParsedHTML.getelementsbytagname('p') |
-Where-Object -FilterScript {
-  $_.InnerText -Like '*data update has been released*'
-} |
-Select-Object -ExpandProperty InnerText
-
-
-#Check to see if this month has already been installed.
+# Check to see if this month has already been installed.
 $AlreadyInstalled = Get-EventLog -LogName Application | Where-Object {$_.Message -like "Successfully installed the $CurrentMonth data update."}
 
  IF ($AlreadyInstalled)
     {
-      IF ($ReleaseMonth -like $CurrentMonth)
-          {
-            Write-EventLog -LogName Application -Source $EventSource -EntryType Information -EventId 100 -Message "$CurrentMonth update has already been installed."
-            Exit
-          }
-        
+        Write-EventLog -LogName Application -Source $EventSource -EntryType Information -EventId 100 -Message "$CurrentMonth update has already been installed."
+        Exit
     }
 
+# This tests to see if a type of download has been determined (e.g. Comprehensive or Incremental) and downloads the appropiate file.
+  IF ($Type = $Null)
+    {
+      $Type = "inc"
+    }
+
+# Required to solve https connection issue below.
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+# This opens the page to allow us to interact with it via the script.
+$Request  = Invoke-WebRequest -Uri "https://bpsoftware.net/resources/bp-premier-downloads/" -UseBasicParsing
 
 # This sections finds the download links present on the data update page and then adds them to the $EXELinks variable.
-$ExeLinks = $Request.ParsedHtml.getElementsByTagName('input') |
-Where-Object -FilterScript {
-  $_.Type -eq 'hidden' -and $_.Value -like 'http*exe' 
-} |
-Select-Object -ExpandProperty Value
+$ExeLinks = ($Request.links | Where href -Like '*BPS_Data_*_inc.exe*') |
+Select-Object -ExpandProperty href
+
 $CurrentDownload = $ExeLinks[0]
 
-
-IF ( $ReleaseMonth -Like "*$CurrentMonth*")
+# Test to see if the current download has already been downloaded.
+IF ((Test-Path -Path "$Destination\$OutFileName" -PathType Leaf -ErrorAction SilentlyContinue) -eq $True)
 {
+  Write-EventLog -LogName Application -Source $EventSource -EntryType Information -EventId 101 -Message "The update file ($Destination\$OutFileName) already exists, exiting"
+  exit
+}
+
   # This section writes an event log that it is going to attempt a download.
   # It then attempts to download the file.
   # The script then checks if the download was successful and writes an event log entry.
-  TRY 
-  {
+
     Write-EventLog -LogName Application -Source $EventSource -EntryType Information -EventId 100 -Message "Attempting to download this months update. The URL is $CurrentDownload"
-    $Download = Invoke-WebRequest -Uri $CurrentDownload -OutFile "$Destination\$OutFileName" -ErrorVariable DownloadError -PassThru
+    $Download = Invoke-WebRequest -Uri $CurrentDownload -OutFile "$Destination\$OutFileName" -ErrorVariable DownloadError -PassThru -UseBasicParsing
 
     IF ($Download.StatusCode -eq '200') 
     {
-      Write-EventLog -LogName Application -Source $EventSource -EntryType Information -EventId 102 -Message "The download was successful. The URL is $CurrentDownload"
-      Write-EventLog -LogName Application -Source $EventSource -EntryType Information -EventId 100 -Message "Attempting to install the $CurrentMonth update."
+      Write-EventLog -LogName Application -Source $EventSource -EntryType Information -EventId 102 -Message "The download was successful. The URL was $CurrentDownload and the path is $Destination\$OutFileName"
+      Write-EventLog -LogName Application -Source $EventSource -EntryType Information -EventId 100 -Message "Attempting to install the $CurrentMonth update from $Destination\$OutFileName"
                             
       TRY 
       {
@@ -95,11 +88,9 @@ IF ( $ReleaseMonth -Like "*$CurrentMonth*")
         Exit
       }
     }
-  }
-
   CATCH 
   {
     Write-EventLog -LogName Application -Source $EventSource -EntryType Warning -EventId 101 -Message "Failed to download the file from URL $CurrentDownload `r`n`n $DownloadError"
     Exit
   }
-}
+
